@@ -23,6 +23,14 @@
 #include "arm_nnfunctions.h"
 #include "arm_nnsupportfunctions.h"
 
+#include "biases_data.h"
+#include "config_data.h"
+#include "input_data.h"
+#include "output_mult_data.h"
+#include "output_ref_data.h"
+#include "output_shift_data.h"
+#include "weights_data.h"
+
 /* Private includes ----------------------------------------------------------*/
 /* USER CODE BEGIN Includes */
 
@@ -47,45 +55,29 @@
 UART_HandleTypeDef huart2;
 
 /* USER CODE BEGIN PV */
-#define CMSIS_NN_USE_SINGLE_ROUNDING 1
+//#define CMSIS_NN_USE_SINGLE_ROUNDING 1
 // 9x9x3 image data filled with incremental values
-#define IMG_DATA { \
-    1, 1, 1, 1, 1, 1, 1, 1, 1,   2, 2, 2, 2, 2, 2, 2, 2, 2,   3, 3, 3, 3, 3, 3, 3, 3, 3, \
-    4, 4, 4, 4, 4, 4, 4, 4, 4,   5, 5, 5, 5, 5, 5, 5, 5, 5,   6, 6, 6, 6, 6, 6, 6, 6, 6, \
-    7, 7, 7, 7, 7, 7, 7, 7, 7,   8, 8, 8, 8, 8, 8, 8, 8, 8,   9, 9, 9, 9, 9, 9, 9, 9, 9 \
-}
-
-// 3x3x3x3 convolution weights filled with alternating small values
-#define CONV1_WT { \
-    1, -1, 1,   -1, 1, -1,   1, -1, 1, \
-    1, -1, 1,   -1, 1, -1,   1, -1, 1, \
-    1, -1, 1,   -1, 1, -1,   1, -1, 1, \
-    \
-    -1, 1, -1,   1, -1, 1,   -1, 1, -1, \
-    -1, 1, -1,   1, -1, 1,   -1, 1, -1, \
-    -1, 1, -1,   1, -1, 1,   -1, 1, -1, \
-    \
-    1, 1, 1,   1, 1, 1,   1, 1, 1, \
-    -1, -1, -1,   -1, -1, -1,   -1, -1, -1, \
-    1, 1, 1,   1, 1, 1,   1, 1, 1 \
-}
-
-// FC weights for 10 output neurons and 27 input features, filled with 1 for simplicity
-#define FC_WEIGHTS { \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, \
-    1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1 \
-}
-
-// FC biases for each of the 10 output neurons
-#define FC_BIAS { 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 }
+#define BASIC_OUT_CH 1
+#define BASIC_IN_CH 1
+#define BASIC_INPUT_W 3
+#define BASIC_INPUT_H 3
+#define BASIC_DST_SIZE 1
+#define BASIC_INPUT_SIZE 9
+#define BASIC_OUT_ACTIVATION_MIN -128
+#define BASIC_OUT_ACTIVATION_MAX 127
+#define BASIC_INPUT_BATCHES 1
+#define BASIC_FILTER_X 3
+#define BASIC_FILTER_Y 3
+#define BASIC_STRIDE_X 1
+#define BASIC_STRIDE_Y 1
+#define BASIC_PAD_X 0
+#define BASIC_PAD_Y 0
+#define BASIC_OUTPUT_W 1
+#define BASIC_OUTPUT_H 1
+#define BASIC_INPUT_OFFSET 128
+#define BASIC_OUTPUT_OFFSET 127
+#define BASIC_DILATION_X 1
+#define BASIC_DILATION_Y 1
 
 /* USER CODE END PV */
 
@@ -110,7 +102,6 @@ int main(void)
 {
 
   /* USER CODE BEGIN 1 */
-
   /* USER CODE END 1 */
 
   /* MCU Configuration--------------------------------------------------------*/
@@ -149,231 +140,85 @@ int main(void)
 
 		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_SET); //SET Led to measure latency
 
-		// Define the weight and bias arrays based on constants
-//		static int8_t conv1_wt[CONV1_IM_CH * CONV1_KER_DIM * CONV1_KER_DIM * CONV1_OUT_CH] = CONV1_WT;
-//		static int32_t conv1_bias[CONV1_OUT_CH] = CONV1_BIAS;
-//
-//		// Input image and output data buffers
-//		int8_t image_data[CONV1_IM_CH * CONV1_IM_DIM * CONV1_IM_DIM] = IMG_DATA;
-//		int8_t output_data[CONV1_OUT_CH * CONV1_OUT_DIM * CONV1_OUT_DIM];
-//
-//
-		// Mock data initialization for testing `arm_convolve_s8` function
+	    // const arm_cmsis_nn_status expected = ARM_CMSIS_NN_SUCCESS;
+	    int8_t output[BASIC_DST_SIZE] = {0};
 
-		int32_t val = 9;
-		int32_t multiplier = 1;   // Scale factor (often a fixed-point number)
-		int32_t shift = 30;
+	    cmsis_nn_context ctx;
+	    cmsis_nn_conv_params conv_params;
+	    cmsis_nn_per_channel_quant_params quant_params;
+	    cmsis_nn_dims input_dims;
+	    cmsis_nn_dims filter_dims;
+	    cmsis_nn_dims bias_dims;
+	    cmsis_nn_dims output_dims;
 
-//		int64_t total_shift = 31 - shift;
-//		int64_t new_val = val * (int64_t)multiplier;
-//
-//		int32_t result = new_val >> (total_shift - 1);
-//		result = (result + 1) >> 1;
+	    const int32_t *bias_data = basic_biases;
+	    for(int i=0; i < 9; i++) { basic_weights[i] = 1; }
+	    const int8_t *kernel_data = basic_weights;
+	    for(int i=0; i < 9; i++) { basic_input[i] = 1; }
+	    const int8_t *input_data = basic_input;
+	    const int8_t *output_ref = basic_output_ref;
+	    const int32_t output_ref_size = BASIC_DST_SIZE;
 
-		int32_t result = arm_nn_requantize(val, multiplier, shift);
+	    input_dims.n = BASIC_INPUT_BATCHES;
+	    input_dims.w = BASIC_INPUT_W;
+	    input_dims.h = BASIC_INPUT_H;
+	    input_dims.c = BASIC_IN_CH;
+	    filter_dims.w = BASIC_FILTER_X;
+	    filter_dims.h = BASIC_FILTER_Y;
+	    filter_dims.c = BASIC_IN_CH;
+	    output_dims.w = BASIC_OUTPUT_W;
+	    output_dims.h = BASIC_OUTPUT_H;
+	    output_dims.c = BASIC_OUT_CH;
 
+	    conv_params.padding.w = BASIC_PAD_X;
+	    conv_params.padding.h = BASIC_PAD_Y;
+	    conv_params.stride.w = BASIC_STRIDE_X;
+	    conv_params.stride.h = BASIC_STRIDE_Y;
+	    conv_params.dilation.w = BASIC_DILATION_X;
+	    conv_params.dilation.h = BASIC_DILATION_Y;
 
-		char buffer[20];
-		int buffer_len = sprintf(buffer, "%ld", (long)result);  // Convert result to a string
+	    conv_params.input_offset = 0; // BASIC_INPUT_OFFSET;
+	    conv_params.output_offset = 0; // BASIC_OUTPUT_OFFSET;
+	    conv_params.activation.min = BASIC_OUT_ACTIVATION_MIN;
+	    conv_params.activation.max = BASIC_OUT_ACTIVATION_MAX;
+	    quant_params.multiplier = (int32_t *)basic_output_mult;
+	    quant_params.shift = (int32_t *)basic_output_shift;
 
-		// Transmit result via UART
-		HAL_UART_Transmit(&huart2, (uint8_t*)buffer, buffer_len, 10);
+	    int32_t buf_size = arm_convolve_s8_get_buffer_size(&input_dims, &filter_dims);
+	    ctx.buf = malloc(buf_size);
+	    ctx.size = 0;
 
-		// 2. Convolution parameters
-		cmsis_nn_conv_params conv_params;
-		conv_params.stride.h = 1;
-		conv_params.stride.w = 1;
-		conv_params.padding.h = 0;
-		conv_params.padding.w = 0;
-		conv_params.dilation.h = 1;
-		conv_params.dilation.w = 1;
-		conv_params.input_offset = 0;
-		conv_params.output_offset = 0;
-		conv_params.activation.min = -128;
-		conv_params.activation.max = 127;
-
-		// 3. Quantization parameters
-		cmsis_nn_per_channel_quant_params quant_params;
-		int32_t quant_mult[] = {1};  // Three elements for three channels
-		int32_t quant_shift[] = {31};                         // Three elements for three channels
-		quant_params.multiplier = quant_mult;
-		quant_params.shift = quant_shift;
-
-		// 4. Input dimensions
-		cmsis_nn_dims conv_input_dims;
-		conv_input_dims.n = 1;   // batch size
-		conv_input_dims.h = 3;   // height
-		conv_input_dims.w = 3;   // width
-		conv_input_dims.c = 1;   // channels
-
-		// 5. Input data (image_data)
-		int8_t image_data[3 * 3 * 1] = IMG_DATA;
-
-		// 6. Filter dimensions
-		cmsis_nn_dims conv_filter_dims;
-		conv_filter_dims.h = 3;  // filter height
-		conv_filter_dims.w = 3;  // filter width
-		conv_filter_dims.c = 1;  // input channels
-		conv_filter_dims.n = 1;  // output channels
-
-		// 7. Weights (conv1_wt)
-		int8_t conv1_wt[3 * 3 * 1 * 1] = {0};
-
-		for (int i = 0; i < 9; i++) {
-			conv1_wt[i] = 1;
-		}
-
-
-		// 8. Bias dimensions
-		cmsis_nn_dims conv_bias_dims;
-		conv_bias_dims.c = 1;    // Number of output channels
-
-		// 9. Biases (conv1_bias)
-		int32_t conv1_bias[1] = {0};  // Initialize to zero for testing
-
-		// 10. Output dimensions
-		cmsis_nn_dims conv_output_dim;
-		conv_output_dim.n = 1;   // batch size
-		conv_output_dim.h = 1;   // output height
-		conv_output_dim.w = 1;   // output width
-		conv_output_dim.c = 1;   // output channels
-
-		// 11. Output data buffer
-		int8_t conv_output[1 * 1 * 1] = {0};  // Initialize to zero
-
-		// 1. Define convolution context (CMSIS-NN context struct)
-		cmsis_nn_context ctx;
-		ctx.size = arm_convolve_s8_get_buffer_size(&conv_input_dims, &conv_filter_dims);
-		ctx.buf = (ctx.size > 0) ? malloc(ctx.size) : NULL;
-
-		// Now call the convolution function
-		arm_cmsis_nn_status status = arm_convolve_s8(
-			&ctx,
-			&conv_params,
-			&quant_params,
-			&conv_input_dims,
-			image_data,
-			&conv_filter_dims,
-			conv1_wt,
-			&conv_bias_dims,
-			conv1_bias,
-			&conv_output_dim,
-			conv_output
+	    arm_convolve_s8(&ctx,
+					 &conv_params,
+					 &quant_params,
+					 &input_dims,
+					 input_data,
+					 &filter_dims,
+					 kernel_data,
+					 &bias_dims,
+					 bias_data,
+					 &output_dims,
+					 output
 		);
 
-		if (ctx.buf != NULL) {
-			free(ctx.buf);
-		}
-
-		 // 2. ReLU Activation
-		arm_relu6_s8(conv_output, 7 * 7 * 1);
-
-		// 3. MaxPooling Layer
-		cmsis_nn_pool_params pool_params;
-		pool_params.stride.w = 2;
-		pool_params.stride.h = 2;
-		pool_params.padding.w = 0;
-		pool_params.padding.h = 0;
-		pool_params.activation.min = -128;    // Activation min (usually -128 for int8)
-		pool_params.activation.max = 127;     // Activation max (usually 127 for int8)
-
-		// Define input/output dimensions structures
-		cmsis_nn_dims pool_input_dims;
-		pool_input_dims.n = 1;
-		pool_input_dims.w = 7;
-		pool_input_dims.h = 7;
-		pool_input_dims.c = 3;
-
-		cmsis_nn_dims pool_filter_dims;
-		pool_filter_dims.w = 2;
-		pool_filter_dims.h = 2;
-
-		cmsis_nn_dims pool_output_dim;
-		pool_output_dim.w = 3;
-		pool_output_dim.h = 3;
-		pool_output_dim.c = 3;
-
-		int8_t pool_output[3 * 3 * 3] = {0};  // Output buffer for max-pooling
-
-		status = arm_max_pool_s8(
-							&ctx,
-							&pool_params,
-							&pool_input_dims,
-							conv_output,
-							&pool_filter_dims,
-							&pool_output_dim,
-							pool_output
-						);
-
-		if (ctx.buf != NULL) {
-			free(ctx.buf);
-		}
-
-		int8_t fc_weights[10 * 27] = FC_WEIGHTS;  // Weights for 10 output neurons and 27 input features
-		int32_t fc_bias[10] = FC_BIAS;                // Bias for each output neuron
-
-		int8_t fc_output[10] = {0};  // Output buffer for FC layer
-
-		cmsis_nn_fc_params fc_params;
-		fc_params.input_offset = 0;
-		fc_params.output_offset = 0;
-		fc_params.activation.min = -128;    // Activation min (usually -128 for int8)
-		fc_params.activation.max = 127;     // Activation max (usually 127 for int8)
-
-		cmsis_nn_per_tensor_quant_params quant_t_params;
-		quant_params.multiplier = 1073741824;  // Unity scaling multiplier
-		quant_params.shift = 0;                // No shift for simplicity
-
-		// Define input/output dimensions structures
-		cmsis_nn_dims fc_input_dims;
-		fc_input_dims.n = 1;                     // Batch size
-		fc_input_dims.w = 3;
-		fc_input_dims.h = 3;
-		fc_input_dims.c = 3;
-
-		cmsis_nn_dims fc_filter_dims;
-		fc_filter_dims.n = 3*3*3;
-		fc_filter_dims.c = 10;        // Input channels for the filter
-
-		cmsis_nn_dims fc_bias_dims;
-		fc_bias_dims.n = 10;         // Bias size matches the output channels
-
-		cmsis_nn_dims fc_output_dim;
-		fc_output_dim.n = 1;
-		fc_output_dim.c = 10;
-
-		// 6. Execute Fully Connected Layer
-		status = arm_fully_connected_s8(
-							&ctx,
-							&fc_params,
-							&quant_t_params,
-							&fc_input_dims,
-							pool_output,
-							&fc_filter_dims,
-							fc_weights,
-							&fc_bias_dims,
-							fc_bias,
-							&fc_output_dim,
-							fc_output
-						);
-
-		if (ctx.buf != NULL) {
-			free(ctx.buf);
-		}
-
-
+	    if (ctx.buf)
+	    {
+	        // The caller is responsible to clear the scratch buffers for security reasons if applicable.
+	        memset(ctx.buf, 0, buf_size);
+	        free(ctx.buf);
+	    }
 
 		// Check convolution status
-		if (status != ARM_CMSIS_NN_SUCCESS) {
-			char res[100];
-			sprintf(res, "Failed: %d\n", status);
-			HAL_UART_Transmit(&huart2, (uint8_t*)res, strlen(res), 10);
-		} else {
-			char *res = "Successful\n";
-			HAL_UART_Transmit(&huart2, (uint8_t*)res, strlen(res), 10);
-		}
-
-		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
+//		if (status != ARM_CMSIS_NN_SUCCESS) {
+//			char res[100];
+//			sprintf(res, "Failed: %d\n", status);
+//			HAL_UART_Transmit(&huart2, (uint8_t*)res, strlen(res), 10);
+//		} else {
+//			char *res = "Successful\n";
+//			HAL_UART_Transmit(&huart2, (uint8_t*)res, strlen(res), 10);
+//		}
+//
+//		HAL_GPIO_WritePin(LD2_GPIO_Port, LD2_Pin, GPIO_PIN_RESET);
 
 //		for (int i = 0; i < 10; i++) {
 //			uint8_t res[20];
